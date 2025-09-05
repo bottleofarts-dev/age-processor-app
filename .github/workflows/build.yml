@@ -1,22 +1,18 @@
-name: Build APK
+name: Build Android APK
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # manually run karne ke liye
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      # 1. Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: "3.10"
-
+      # 2. Install system dependencies
       - name: Install dependencies
         run: |
           sudo apt update
@@ -26,21 +22,27 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-          # Android SDK + NDK setup
+      # 3. Setup Android SDK + NDK
+      - name: Setup Android SDK
+        run: |
           mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
           cd $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
-          unzip commandlinetools-linux-9477386_latest.zip -d latest
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip cmdline-tools.zip
+          mv cmdline-tools latest
 
+          # sdkmanager run
           yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
-            "platform-tools" "platforms;android-33" "build-tools;33.0.2" "cmdline-tools;latest"
+            "platform-tools" "platforms;android-33" "build-tools;33.0.2" "cmdline-tools;latest" "ndk;23.1.7779620"
 
+      # 4. Build APK with Buildozer
       - name: Build APK
         run: |
           buildozer -v android debug
 
+      # 5. Upload APK as artifact
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ageprocessor-apk
+          name: age-processor-apk
           path: bin/*.apk
